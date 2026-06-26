@@ -1,0 +1,53 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+model WeeklyReport {
+  id              String    @id @default(uuid())
+  label           String
+  range           String
+  shortRange      String
+  contactsNeeded  String    @default("0")
+  days            Json      // [{ name, leads }]
+  meta            Json      // [{ name, value }]
+  createdAt       DateTime  @default(now())
+
+  invoices        Invoice[]
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  date            DateTime
+  month           String
+  description     String
+  platform        Platform
+  amount          Float?
+  paymentStatus   PaymentStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  weeklyReportId  String
+  weeklyReport    WeeklyReport  @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
+}
+
+enum Platform {
+  META
+  TWITTER_X
+  RUNWAY_AI
+  SMS_VONAGE
+  PROPSTREAM
+  SMARTER_CONTACTS
+  CHATGPT_ADS
+  OTHER
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  OVERDUE
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Invoice, Platform, PaymentStatus, PLATFORM_LABELS, PLATFORM_COLORS, STATUS_COLORS } from '@/lib/types'
+import { Invoice, Platform, PaymentStatus, Currency, PLATFORM_LABELS, PLATFORM_COLORS, STATUS_COLORS, CURRENCY_LABELS } from '@/lib/types'
 
 interface InvoiceFormProps {
     weeklyReportId: string
@@ -11,6 +11,7 @@ interface InvoiceFormProps {
 const PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[]
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const STATUSES: PaymentStatus[] = ['PAID', 'PENDING', 'OVERDUE']
+const CURRENCIES: Currency[] = ['USD', 'CREDITS']
 
 const STATUS_LABELS: Record<PaymentStatus, string> = {
     PAID: 'Paid',
@@ -63,9 +64,9 @@ function CustomDropdown<T extends string>({
                     ...(open ? { borderColor: '#0070f3' } : {}),
                 }}
             >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {renderSelected(value)}
-        </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {renderSelected(value)}
+                </span>
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ flexShrink: 0, opacity: 0.5, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
                     <path d="M1 1l4 4 4-4" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
@@ -127,8 +128,8 @@ function PlatformBadge({ platform }: { platform: Platform }) {
             fontWeight: 700,
             whiteSpace: 'nowrap',
         }}>
-      {PLATFORM_LABELS[platform]}
-    </span>
+            {PLATFORM_LABELS[platform]}
+        </span>
     )
 }
 
@@ -146,8 +147,8 @@ function StatusBadge({ status }: { status: PaymentStatus }) {
             fontWeight: 700,
             whiteSpace: 'nowrap',
         }}>
-      {STATUS_LABELS[status]}
-    </span>
+            {STATUS_LABELS[status]}
+        </span>
     )
 }
 
@@ -164,8 +165,27 @@ function MonthBadge({ month }: { month: string }) {
             fontWeight: 700,
             whiteSpace: 'nowrap',
         }}>
-      {month}
-    </span>
+            {month}
+        </span>
+    )
+}
+
+// ── Currency Badge ────────────────────────────────────────────
+function CurrencyBadge({ currency }: { currency: Currency }) {
+    const isCredits = currency === 'CREDITS'
+    return (
+        <span style={{
+            background: isCredits ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)',
+            color: isCredits ? '#fbbf24' : '#34d399',
+            border: `1px solid ${isCredits ? 'rgba(251,191,36,0.3)' : 'rgba(52,211,153,0.3)'}`,
+            borderRadius: 10,
+            padding: '2px 10px',
+            fontSize: 11,
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+        }}>
+            {CURRENCY_LABELS[currency]}
+        </span>
     )
 }
 
@@ -183,6 +203,7 @@ export default function InvoiceForm({ weeklyReportId, onCreated }: InvoiceFormPr
         description: '',
         platform: 'META' as Platform,
         amount: '',
+        currency: 'USD' as Currency,
         paymentStatus: 'PAID' as PaymentStatus,
         notes: '',
     })
@@ -193,6 +214,7 @@ export default function InvoiceForm({ weeklyReportId, onCreated }: InvoiceFormPr
         description: '',
         platform: 'META',
         amount: '',
+        currency: 'USD',
         paymentStatus: 'PAID',
         notes: '',
     })
@@ -279,7 +301,7 @@ export default function InvoiceForm({ weeklyReportId, onCreated }: InvoiceFormPr
                         />
                     </div>
 
-                    {/* Platform + Amount */}
+                    {/* Platform + Amount + Currency */}
                     <div className="form-row">
                         <div className="form-group">
                             <label className="form-label">Platform</label>
@@ -292,15 +314,65 @@ export default function InvoiceForm({ weeklyReportId, onCreated }: InvoiceFormPr
                             />
                         </div>
                         <div className="form-group">
-                            <label className="form-label">Amount (US$)</label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                className="form-input"
-                                placeholder="0.00"
-                                value={form.amount}
-                                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                            />
+                            <label className="form-label">Amount</label>
+                            {/* Amount input with inline currency selector */}
+                            <div style={{
+                                display: 'flex',
+                                borderRadius: 8,
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                overflow: 'hidden',
+                                background: 'rgba(255,255,255,0.05)',
+                                transition: 'border-color 0.2s',
+                            }}
+                                 onFocusCapture={e => (e.currentTarget.style.borderColor = '#0070f3')}
+                                 onBlurCapture={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                            >
+                                {/* Currency prefix select */}
+                                <select
+                                    value={form.currency}
+                                    onChange={e => setForm(f => ({ ...f, currency: e.target.value as Currency }))}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.06)',
+                                        border: 'none',
+                                        borderRight: '1px solid rgba(255,255,255,0.1)',
+                                        color: form.currency === 'CREDITS' ? '#fbbf24' : '#34d399',
+                                        fontFamily: 'inherit',
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        padding: '0 10px',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        flexShrink: 0,
+                                        letterSpacing: '0.5px',
+                                    }}
+                                >
+                                    {CURRENCIES.map(c => (
+                                        <option key={c} value={c} style={{ background: '#0f1f33', color: '#e2e8f0' }}>
+                                            {CURRENCY_LABELS[c]}
+                                        </option>
+                                    ))}
+                                </select>
+                                {/* Amount number input */}
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0.00"
+                                    value={form.amount}
+                                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                                    style={{
+                                        flex: 1,
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#ffffff',
+                                        fontFamily: 'inherit',
+                                        fontSize: 14,
+                                        padding: '8px 12px',
+                                        outline: 'none',
+                                        width: '100%',
+                                    }}
+                                />
+                            </div>
                         </div>
                     </div>
 

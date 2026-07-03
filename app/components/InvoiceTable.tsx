@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Invoice, PLATFORM_LABELS, PLATFORM_COLORS, STATUS_COLORS } from '@/lib/types'
+import { Invoice, Currency, PLATFORM_LABELS, PLATFORM_COLORS, STATUS_COLORS } from '@/lib/types'
 import InvoiceForm from './InvoiceForm'
 
 interface InvoiceTableProps {
@@ -14,7 +14,14 @@ interface InvoiceTableProps {
 export default function InvoiceTable({ weeklyReportId, invoices, onInvoiceAdded, onInvoiceDeleted }: InvoiceTableProps) {
     const [deleting, setDeleting] = useState<string | null>(null)
 
-    const totalAmount = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0)
+    // Only sum USD invoices for the total (credits are a different unit)
+    const totalUSD = invoices
+        .filter(inv => inv.currency === 'USD')
+        .reduce((sum, inv) => sum + (inv.amount || 0), 0)
+
+    const totalCredits = invoices
+        .filter(inv => inv.currency === 'CREDITS')
+        .reduce((sum, inv) => sum + (inv.amount || 0), 0)
 
     const handleDelete = async (id: string) => {
         if (!confirm('Delete this invoice?')) return
@@ -34,9 +41,39 @@ export default function InvoiceTable({ weeklyReportId, invoices, onInvoiceAdded,
         return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
     }
 
-    const formatAmount = (amount: number | null) => {
+    const formatAmount = (amount: number | null, currency: Currency) => {
         if (amount === null || amount === undefined) return '—'
-        return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} US$`
+        if (currency === 'CREDITS') {
+            return (
+                <span style={{ color: '#fbbf24', fontWeight: 700 }}>
+                    {amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} credits
+                </span>
+            )
+        }
+        return (
+            <span style={{ color: '#34d399', fontWeight: 700 }}>
+                ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+        )
+    }
+
+    const formatTotals = () => {
+        const parts: React.ReactNode[] = []
+        if (totalUSD > 0) parts.push(
+            <span key="usd" style={{ color: '#34d399', fontWeight: 700 }}>
+                ${totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+        )
+        if (totalCredits > 0) parts.push(
+            <span key="credits" style={{ color: '#fbbf24', fontWeight: 700 }}>
+                {totalCredits.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} credits
+            </span>
+        )
+        if (parts.length === 0) return null
+        return parts.reduce((acc, el, i) =>
+                i === 0 ? [el] : [...(acc as React.ReactNode[]), <span key={`sep-${i}`} style={{ color: '#64748b', margin: '0 4px' }}>+</span>, el],
+            [] as React.ReactNode[]
+        )
     }
 
     return (
@@ -52,9 +89,9 @@ export default function InvoiceTable({ weeklyReportId, invoices, onInvoiceAdded,
                 </div>
                 <div className="invoice-section-right">
                     {invoices.length > 0 && (
-                        <span className="invoice-total">
-              Total: <strong>{formatAmount(totalAmount)}</strong>
-            </span>
+                        <span className="invoice-total" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            Total:&nbsp;{formatTotals()}
+                        </span>
                     )}
                     <InvoiceForm weeklyReportId={weeklyReportId} onCreated={onInvoiceAdded} />
                 </div>
@@ -97,21 +134,23 @@ export default function InvoiceTable({ weeklyReportId, invoices, onInvoiceAdded,
                                         {inv.description}
                                     </td>
                                     <td>
-                      <span
-                          className="inv-platform-badge"
-                          style={{ background: platformColor + '22', color: platformColor, borderColor: platformColor + '44' }}
-                      >
-                        {PLATFORM_LABELS[inv.platform]}
-                      </span>
+                                            <span
+                                                className="inv-platform-badge"
+                                                style={{ background: platformColor + '22', color: platformColor, borderColor: platformColor + '44' }}
+                                            >
+                                                {PLATFORM_LABELS[inv.platform]}
+                                            </span>
                                     </td>
-                                    <td className="inv-amount">{formatAmount(inv.amount)}</td>
+                                    <td className="inv-amount">
+                                        {formatAmount(inv.amount, inv.currency)}
+                                    </td>
                                     <td>
-                      <span
-                          className="inv-status-badge"
-                          style={{ background: statusStyle.bg, color: statusStyle.text, borderColor: statusStyle.border }}
-                      >
-                        {inv.paymentStatus.charAt(0) + inv.paymentStatus.slice(1).toLowerCase()}
-                      </span>
+                                            <span
+                                                className="inv-status-badge"
+                                                style={{ background: statusStyle.bg, color: statusStyle.text, borderColor: statusStyle.border }}
+                                            >
+                                                {inv.paymentStatus.charAt(0) + inv.paymentStatus.slice(1).toLowerCase()}
+                                            </span>
                                     </td>
                                     <td className="inv-notes">{inv.notes || '—'}</td>
                                     <td>

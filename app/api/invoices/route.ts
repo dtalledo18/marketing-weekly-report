@@ -9,13 +9,14 @@ export async function POST(req: Request) {
         const invoice = await prisma.invoice.create({
             data: {
                 weeklyReportId: body.weeklyReportId,
-                date: new Date(body.date),
-                month: body.month,
-                description: body.description,
-                platform: body.platform,
-                amount: body.amount ? parseFloat(body.amount) : null,
-                paymentStatus: body.paymentStatus || 'PENDING',
-                notes: body.notes || null,
+                date:           new Date(body.date),
+                month:          body.month,
+                description:    body.description,
+                platform:       body.platform,
+                amount:         body.amount ? parseFloat(body.amount) : null,
+                currency:       body.currency ?? 'USD',
+                paymentStatus:  body.paymentStatus || 'PENDING',
+                notes:          body.notes || null,
             },
         })
         return NextResponse.json(invoice, { status: 201 })

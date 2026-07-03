@@ -27,12 +27,18 @@ model Invoice {
   description     String
   platform        Platform
   amount          Float?
+  currency        Currency      @default(USD)   // ← nuevo
   paymentStatus   PaymentStatus @default(PENDING)
   notes           String?
   createdAt       DateTime      @default(now())
 
   weeklyReportId  String
   weeklyReport    WeeklyReport  @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
+}
+
+enum Currency {
+  USD
+  CREDITS
 }
 
 enum Platform {

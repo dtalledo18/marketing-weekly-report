@@ -39,8 +39,8 @@ export interface Invoice {
 export interface WeeklyReport {
     id: string
     label: string
-    range: string
-    shortRange: string
+    range?: string       // deprecated — derivado de startDate/endDate
+    shortRange?: string  // deprecated — derivado de startDate/endDate
     contactsNeeded: string
     days: DayData[]
     meta: MetaData[]

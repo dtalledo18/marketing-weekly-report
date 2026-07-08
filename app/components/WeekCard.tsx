@@ -3,7 +3,7 @@
 import { WeeklyReport, Invoice, DayData, MetaData } from '@/lib/types'
 import InvoiceTable from './InvoiceTable'
 import { useEffect, useRef, useState } from 'react'
-
+import { getRangeStrings } from '@/lib/dateUtils'
 
 interface WeekCardProps {
     week: WeeklyReport
@@ -15,42 +15,46 @@ declare global {
 }
 
 export default function WeekCard({ week, allWeeks }: WeekCardProps) {
-    const chartRef = useRef<HTMLCanvasElement>(null)
+    const chartRef      = useRef<HTMLCanvasElement>(null)
     const chartInstance = useRef<any>(null)
-    const [days, setDays] = useState<DayData[]>(week.days as DayData[])
-    const [meta, setMeta] = useState<MetaData[]>(week.meta as MetaData[])
-    const [invoices, setInvoices] = useState<Invoice[]>(week.invoices)
+    const [days, setDays]                 = useState<DayData[]>(week.days as DayData[])
+    const [meta, setMeta]                 = useState<MetaData[]>(week.meta as MetaData[])
+    const [invoices, setInvoices]         = useState<Invoice[]>(week.invoices)
     const [contactsNeeded, setContactsNeeded] = useState(week.contactsNeeded)
-    const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
-    const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const isFirstRender = useRef(true)
+    const [saveStatus, setSaveStatus]     = useState<'saved' | 'saving' | 'idle'>('idle')
+    const saveTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const isFirstRender  = useRef(true)
 
+    // ── Derived range strings from startDate / endDate ────────
+    const { fullRange, shortRange } = getRangeStrings(week.startDate, week.endDate)
 
-    // Computed stats
+    // Historical range: first week start – last week end
+    const firstWeek = allWeeks[0]
+    const lastWeek  = allWeeks[allWeeks.length - 1]
+    const { shortRange: firstShort } = getRangeStrings(firstWeek?.startDate, firstWeek?.endDate)
+    const { shortRange: lastShort  } = getRangeStrings(lastWeek?.startDate,  lastWeek?.endDate)
+    const historicalRange = allWeeks.length > 1
+        ? `${firstShort.split('–')[0]?.trim()} – ${lastShort.split('–')[1]?.trim()}`
+        : shortRange
+
+    // ── Computed stats ────────────────────────────────────────
     const weeklyTotal = days.reduce((s, d) => s + (d.leads || 0), 0)
-    const avgLeads = days.length ? (weeklyTotal / days.length) : 0
+    const avgLeads    = days.length ? weeklyTotal / days.length : 0
     const historicalTotal = allWeeks.reduce((sum, w) => {
         if (w.id === week.id) return sum + weeklyTotal
-        const wDays = w.days as DayData[]
-        return sum + wDays.reduce((s, d) => s + (d.leads || 0), 0)
+        return sum + (w.days as DayData[]).reduce((s, d) => s + (d.leads || 0), 0)
     }, 0)
 
-    const firstWeek = allWeeks[0]
-    const lastWeek = allWeeks[allWeeks.length - 1]
-    const historicalRange = allWeeks.length > 1
-        ? `${(firstWeek.shortRange || '').split('–')[0]?.trim()} – ${(lastWeek.shortRange || '').split('–')[1]?.trim()}`
-        : week.shortRange
-
-    // Init / update chart
+    // ── Chart init ────────────────────────────────────────────
     useEffect(() => {
         if (!chartRef.current || typeof window === 'undefined' || !window.Chart) return
 
         const labels = days.map(d => d.name)
-        const data = days.map(d => d.leads)
+        const data   = days.map(d => d.leads)
 
         if (chartInstance.current) {
-            chartInstance.current.data.labels = labels
-            chartInstance.current.data.datasets[0].data = data
+            chartInstance.current.data.labels             = labels
+            chartInstance.current.data.datasets[0].data   = data
             chartInstance.current.update()
             return
         }
@@ -95,22 +99,22 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
             },
         })
 
-        return () => {
-            chartInstance.current?.destroy()
-            chartInstance.current = null
-        }
+        return () => { chartInstance.current?.destroy(); chartInstance.current = null }
     }, [])
 
+    // ── Chart update on days change ───────────────────────────
     useEffect(() => {
-        // Saltear el primer render — no hay cambios reales todavía
-        if (isFirstRender.current) {
-            isFirstRender.current = false
-            return
-        }
+        if (!chartInstance.current) return
+        chartInstance.current.data.labels           = days.map(d => d.name)
+        chartInstance.current.data.datasets[0].data = days.map(d => d.leads)
+        chartInstance.current.update()
+    }, [days])
 
+    // ── Autosave ──────────────────────────────────────────────
+    useEffect(() => {
+        if (isFirstRender.current) { isFirstRender.current = false; return }
         setSaveStatus('saving')
         if (saveTimer.current) clearTimeout(saveTimer.current)
-
         saveTimer.current = setTimeout(async () => {
             try {
                 await fetch(`/api/weeks/${week.id}`, {
@@ -124,27 +128,14 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
                 setSaveStatus('idle')
             }
         }, 800)
-
-        return () => {
-            if (saveTimer.current) clearTimeout(saveTimer.current)
-        }
+        return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
     }, [days, meta, contactsNeeded])
 
-    // Update chart when days change
-    useEffect(() => {
-        if (!chartInstance.current) return
-        chartInstance.current.data.labels = days.map(d => d.name)
-        chartInstance.current.data.datasets[0].data = days.map(d => d.leads)
-        chartInstance.current.update()
-    }, [days])
-
-    const updateDay = (i: number, field: 'name' | 'leads', value: string | number) => {
+    const updateDay  = (i: number, field: 'name' | 'leads', value: string | number) =>
         setDays(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: value } : d))
-    }
 
-    const updateMeta = (i: number, field: 'name' | 'value', value: string) => {
+    const updateMeta = (i: number, field: 'name' | 'value', value: string) =>
         setMeta(prev => prev.map((m, idx) => idx === i ? { ...m, [field]: value } : m))
-    }
 
     return (
         <div className="report-card-wrap">
@@ -153,21 +144,11 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
             <header className="report-header">
                 <div className="header-top">
                     <h1 className="report-title">Marketing Weekly Report 2026</h1>
-                    <div className="week-badge-header">{week.range}</div>
+                    <div className="week-badge-header">{fullRange}</div>
                 </div>
                 <div className="autosave-indicator">
-                    {saveStatus === 'saving' && (
-                        <>
-                            <span className="autosave-dot saving" />
-                            Saving...
-                        </>
-                    )}
-                    {saveStatus === 'saved' && (
-                        <>
-                            <span className="autosave-dot saved" />
-                            Saved
-                        </>
-                    )}
+                    {saveStatus === 'saving' && <><span className="autosave-dot saving" />Saving...</>}
+                    {saveStatus === 'saved'  && <><span className="autosave-dot saved"  />Saved</>}
                 </div>
             </header>
 
@@ -175,7 +156,7 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
             <section className="section-summary">
                 <h2 className="section-title">Executive Summary</h2>
                 <p className="summary-text">
-                    This report is based on campaign performance from <strong>{week.range}</strong>.{' '}
+                    This report is based on campaign performance from <strong>{fullRange}</strong>.{' '}
                     All figures and analysis correspond to this reporting period.{' '}
                     The corresponding invoices are attached at the end of this document for reference.
                 </p>
@@ -195,7 +176,7 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
                         <div className="stat-group">
                             <div className="sidebar-label">Weekly Leads</div>
                             <div className="total-leads-value">{weeklyTotal}</div>
-                            <div className="date-sub-label">({week.shortRange})</div>
+                            <div className="date-sub-label">({shortRange})</div>
                         </div>
                     </div>
 
@@ -231,29 +212,18 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
                     </div>
                     <table className="perf-table">
                         <thead>
-                        <tr>
-                            <th>Performance</th>
-                            <th className="col-total">TOTAL</th>
-                        </tr>
+                        <tr><th>Performance</th><th className="col-total">TOTAL</th></tr>
                         </thead>
                         <tbody>
                         {meta.map((row, i) => (
                             <tr key={i} className="perf-row">
                                 <td className="perf-name">
-                                    <input
-                                        className="meta-field-input"
-                                        value={row.name}
-                                        onChange={e => updateMeta(i, 'name', e.target.value)}
-                                        spellCheck={false}
-                                    />
+                                    <input className="meta-field-input" value={row.name}
+                                           onChange={e => updateMeta(i, 'name', e.target.value)} spellCheck={false} />
                                 </td>
                                 <td className="perf-total">
-                                    <input
-                                        className="meta-field-input meta-value"
-                                        value={row.value}
-                                        onChange={e => updateMeta(i, 'value', e.target.value)}
-                                        spellCheck={false}
-                                    />
+                                    <input className="meta-field-input meta-value" value={row.value}
+                                           onChange={e => updateMeta(i, 'value', e.target.value)} spellCheck={false} />
                                 </td>
                             </tr>
                         ))}
@@ -268,20 +238,10 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
                     <div className="chart-data-header" style={{ gridTemplateColumns: `repeat(${days.length}, 1fr)` }}>
                         {days.map((day, i) => (
                             <div key={i} className="day-column">
-                                <input
-                                    type="text"
-                                    className="day-name-input"
-                                    value={day.name}
-                                    onChange={e => updateDay(i, 'name', e.target.value)}
-                                    spellCheck={false}
-                                />
-                                <input
-                                    type="number"
-                                    className="day-leads-input"
-                                    value={day.leads}
-                                    min={0}
-                                    onChange={e => updateDay(i, 'leads', parseInt(e.target.value) || 0)}
-                                />
+                                <input type="text" className="day-name-input" value={day.name}
+                                       onChange={e => updateDay(i, 'name', e.target.value)} spellCheck={false} />
+                                <input type="number" className="day-leads-input" value={day.leads} min={0}
+                                       onChange={e => updateDay(i, 'leads', parseInt(e.target.value) || 0)} />
                             </div>
                         ))}
                     </div>
@@ -291,11 +251,11 @@ export default function WeekCard({ week, allWeeks }: WeekCardProps) {
                 </div>
             </section>
 
-            {/* Invoices Section */}
+            {/* Invoices */}
             <InvoiceTable
                 weeklyReportId={week.id}
                 invoices={invoices}
-                onInvoiceAdded={(inv) => setInvoices(prev => [...prev, inv])}
+                onInvoiceAdded={(inv)  => setInvoices(prev => [...prev, inv])}
                 onInvoiceDeleted={(id) => setInvoices(prev => prev.filter(i => i.id !== id))}
             />
 

@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import { WeeklyReport } from '@/lib/types'
 import WeekCard from './components/WeekCard'
 import WeekForm from './components/WeekForm'
+import { getRangeStrings } from '@/lib/dateUtils'
 
 export default function Home() {
-    const [weeks, setWeeks] = useState<WeeklyReport[]>([])
-    const [loading, setLoading] = useState(true)
+    const [weeks, setWeeks]       = useState<WeeklyReport[]>([])
+    const [loading, setLoading]   = useState(true)
     const [selectedId, setSelectedId] = useState<string | null>(null)
 
     useEffect(() => {
@@ -21,6 +22,7 @@ export default function Home() {
     }, [])
 
     const selectedWeek = weeks.find(w => w.id === selectedId) ?? null
+    const { shortRange } = getRangeStrings(selectedWeek?.startDate ?? null, selectedWeek?.endDate ?? null)
 
     return (
         <>
@@ -50,7 +52,7 @@ export default function Home() {
                     </div>
 
                     {selectedWeek && (
-                        <span className="week-badge">{selectedWeek.shortRange}</span>
+                        <span className="week-badge">{shortRange}</span>
                     )}
 
                     <WeekForm

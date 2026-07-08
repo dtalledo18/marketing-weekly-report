@@ -13,8 +13,10 @@ model WeeklyReport {
   range           String
   shortRange      String
   contactsNeeded  String    @default("0")
-  days            Json      // [{ name, leads }]
-  meta            Json      // [{ name, value }]
+  days            Json
+  meta            Json
+  startDate       DateTime?
+  endDate         DateTime?
   createdAt       DateTime  @default(now())
 
   invoices        Invoice[]

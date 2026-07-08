@@ -333,6 +333,7 @@ export default function WeekForm({ onCreated, weekCount }: WeekFormProps) {
                             placeholder="e.g. 21.5k"
                             value={contactsNeeded}
                             onChange={e => setContactsNeeded(e.target.value)}
+                            required   // ← esto
                         />
                     </div>
 

@@ -46,6 +46,8 @@ export interface WeeklyReport {
     meta: MetaData[]
     createdAt: string
     invoices: Invoice[]
+    startDate: string | null   // ← nuevo
+    endDate:   string | null   // ← nuevo
 }
 
 export const PLATFORM_LABELS: Record<Platform, string> = {

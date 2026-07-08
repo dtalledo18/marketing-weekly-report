@@ -215,6 +215,8 @@ export default function WeekForm({ onCreated, weekCount }: WeekFormProps) {
                     range:          fullRange,
                     shortRange:     shortRange,
                     contactsNeeded: contactsNeeded,
+                    startDate:      startDate.toISOString(),
+                    endDate:        endDate.toISOString(),
                 }),
             })
             if (!res.ok) throw new Error('Failed')
